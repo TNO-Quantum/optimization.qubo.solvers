@@ -83,3 +83,6 @@ class PreprocessResult(ResultInterface):
             and self.freq == other.freq
             and self.partial_solution == other.partial_solution
         )
+
+    def __hash__(self) -> int:
+        return hash(self.to_json())

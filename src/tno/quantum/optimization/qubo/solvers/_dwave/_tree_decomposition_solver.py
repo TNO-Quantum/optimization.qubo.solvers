@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import Any
 
 from dwave.samplers import TreeDecompositionSolver as DWAVETreeDecompositionSolver
-
 from tno.quantum.optimization.qubo.components import QUBO, Solver
+
 from tno.quantum.optimization.qubo.solvers._dwave._dimod_sample_set_result import (
     DimodSampleSetResult,
 )

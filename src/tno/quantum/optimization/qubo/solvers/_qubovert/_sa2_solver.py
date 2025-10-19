@@ -6,13 +6,13 @@ from typing import Any, SupportsInt
 
 import qubovert
 from numpy.random import RandomState
-
 from tno.quantum.optimization.qubo.components import QUBO, Solver
+from tno.quantum.utils.validation import check_int, check_random_state
+
 from tno.quantum.optimization.qubo.solvers._qubovert._qubovert_anneal_result import (
     QubovertAnnealResult,
 )
 from tno.quantum.optimization.qubo.solvers._qubovert._utils import _get_qubovert_model
-from tno.quantum.utils.validation import check_int, check_random_state
 
 
 class SA2Solver(Solver[QubovertAnnealResult]):

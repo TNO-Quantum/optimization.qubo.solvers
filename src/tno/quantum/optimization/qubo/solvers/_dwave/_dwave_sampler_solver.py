@@ -8,20 +8,26 @@ from copy import deepcopy
 from typing import Any, SupportsInt
 
 import numpy as np
-from dwave.system import DWaveSampler, EmbeddingComposite, FixedEmbeddingComposite
-
+from dimod import SampleSet
+from dwave.preprocessing.composites import SpinReversalTransformComposite
+from dwave.system import (
+    AutoEmbeddingComposite,
+    DWaveSampler,
+    FixedEmbeddingComposite,
+)
 from tno.quantum.optimization.qubo.components import QUBO, Solver
+from tno.quantum.utils.validation import (
+    check_bool,
+    check_int,
+    check_string,
+)
+
 from tno.quantum.optimization.qubo.solvers._dwave._dimod_sample_set_result import (
     DimodSampleSetResult,
 )
 from tno.quantum.optimization.qubo.solvers._dwave._utils import (
     get_singleton,
     retry_on_network_errors,
-)
-from tno.quantum.utils.validation import (
-    check_bool,
-    check_int,
-    check_string,
 )
 
 
@@ -55,6 +61,7 @@ class DWaveSamplerSolver(Solver[DimodSampleSetResult]):
         embedding: Mapping[int, tuple[int, ...]] | None = None,
         return_embedding: bool = True,
         reuse_embedding: bool = False,
+        num_spin_reversal_transforms: int = 0,
         **sample_kwargs: Any,
     ) -> None:
         """Init :py:class:`DWaveSamplerSolver`.
@@ -78,6 +85,12 @@ class DWaveSamplerSolver(Solver[DimodSampleSetResult]):
                 the solver. If ``False``, a new embedding is created for each call to
                 the solver. Default is ``False``. Note that this option locks the solver
                 to solve just one QUBO 'shape'.
+            num_spin_reversal_transforms: Number of spin reversal transform runs. A
+                value of ``0`` will not transform the problem. If you specify a
+                nonzero value, each spin reversal transform will result in an
+                independent run of the child sampler, with all results aggregated
+                into a single sample set containing
+                ``num_reads*num_spin_reversal_transforms`` samples. Default is ``0``.
             sample_kwargs: Additional keyword arguments that can be used for the
                 sampler. See the D-Wave documentation of
                 :py:attr:`~dwave.system.samplers.DWaveSampler.parameters` for possible
@@ -107,12 +120,29 @@ class DWaveSamplerSolver(Solver[DimodSampleSetResult]):
             return_embedding, "return_embedding", safe=True
         )
         self.reuse_embedding = check_bool(reuse_embedding, "reuse_embedding", safe=True)
+        self.num_spin_reversal_transforms = check_int(
+            num_spin_reversal_transforms, "num_spin_reversal_transforms", l_bound=0
+        )
         self.sample_kwargs = sample_kwargs
 
     @retry_on_network_errors
     def _solve(self, qubo: QUBO) -> DimodSampleSetResult:
         """Solves the given QUBO using sample_qubo functionality of the DWaveSampler."""
+        # NOTE: DWaveSampler.sample does not return embedding when QUBO size is zero
+        if qubo.size == 0:
+            if self.embedding is None:
+                self.embedding = {}
+            info: dict[str, Any] = {"embedding_context": {"embedding": self.embedding}}
+            sampleset = SampleSet.from_samples([[]], "BINARY", qubo.offset)  # type: ignore[no-untyped-call]
+            sampleset = SampleSet(
+                sampleset.record, sampleset.variables, info, sampleset.vartype
+            )  # type: ignore[no-untyped-call]
+            return DimodSampleSetResult.from_result(qubo, sampleset)
+
         sampler = get_singleton(DWaveSampler, solver=self.backend_id)
+
+        # Wrap the raw sampler in the SpinReversalTransformComposite
+        sampler = SpinReversalTransformComposite(sampler)
 
         # Wrap the raw sampler in the (Fixed)EmbeddingComposite
         if self.embedding is not None:
@@ -124,7 +154,7 @@ class DWaveSamplerSolver(Solver[DimodSampleSetResult]):
                     "DWaveCliqueSamplerSolver instead.",
                     stacklevel=2,
                 )
-            sampler = EmbeddingComposite(
+            sampler = AutoEmbeddingComposite(
                 sampler,
                 embedding_parameters={"random_seed": self.embedding_seed},
             )
@@ -139,6 +169,7 @@ class DWaveSamplerSolver(Solver[DimodSampleSetResult]):
             qubo.to_bqm(),
             num_reads=self.num_reads,
             return_embedding=return_embedding,
+            num_spin_reversal_transforms=self.num_spin_reversal_transforms,
             **self.sample_kwargs,
         )
 

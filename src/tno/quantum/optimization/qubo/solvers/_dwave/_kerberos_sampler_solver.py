@@ -4,17 +4,16 @@ from __future__ import annotations
 
 from typing import Any, SupportsInt
 
+from dimod import SampleSet
 from hybrid.reference.kerberos import KerberosSampler
-
 from tno.quantum.optimization.qubo.components import QUBO, Solver
-from tno.quantum.optimization.qubo.solvers._dwave._dimod_sample_set_result import (
-    DimodSampleSetResult,
-)
+from tno.quantum.utils.validation import check_int
+
+from tno.quantum.optimization.qubo.solvers import DimodSampleSetResult
 from tno.quantum.optimization.qubo.solvers._dwave._utils import (
     get_singleton,
     retry_on_network_errors,
 )
-from tno.quantum.utils.validation import check_int
 
 
 class KerberosSamplerSolver(Solver[DimodSampleSetResult]):
@@ -78,6 +77,10 @@ class KerberosSamplerSolver(Solver[DimodSampleSetResult]):
     @retry_on_network_errors
     def _solve(self, qubo: QUBO) -> DimodSampleSetResult:
         """Solve QUBO using the quantum-classical hybrid ``KerberosSampler``."""
+        if qubo.size == 0:  # NOTE: KerberosSampler.sample fails on BQM of size zero
+            sampleset = SampleSet.from_samples([[]], "BINARY", qubo.offset)  # type: ignore[no-untyped-call]
+            return DimodSampleSetResult.from_result(qubo, sampleset)
+
         response = self.sampler.sample(
             qubo.to_bqm(),
             max_iter=self.max_iter,

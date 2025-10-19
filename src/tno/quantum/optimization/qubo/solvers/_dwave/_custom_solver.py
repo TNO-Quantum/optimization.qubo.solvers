@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING, Any
 
 from hybrid.core import State
 from hybrid.utils import min_sample
-
 from tno.quantum.optimization.qubo.components import QUBO, Solver
+from tno.quantum.utils.validation import check_int
+
 from tno.quantum.optimization.qubo.solvers._dwave._dimod_sample_set_result import (
     DimodSampleSetResult,
 )
 from tno.quantum.optimization.qubo.solvers._dwave._utils import retry_on_network_errors
-from tno.quantum.utils.validation import check_int
 
 if TYPE_CHECKING:
     from hybrid.flow import Branch

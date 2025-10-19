@@ -1,10 +1,10 @@
 """Test module for the ``QAOAResult`` class."""
 
 import pytest
-
 from tno.quantum.optimization.qubo.components import Freq
-from tno.quantum.optimization.qubo.solvers._qaoa._qaoa_result import QAOAResult
 from tno.quantum.utils import BackendConfig, OptimizerConfig
+
+from tno.quantum.optimization.qubo.solvers import QAOAResult
 
 
 @pytest.fixture(name="result")

@@ -20,7 +20,7 @@ $ python -m pip install tno.quantum.optimization.qubo.solvers
 
 By default, the package is installed without external solver dependencies. You can
 specify which QUBO solvers you would like to install. Available options are
-``[dwave, qubovert, qaoa]``. Alternatively, you can install all solvers
+``[dwave, qubovert, dqo]``. Alternatively, you can install all solvers
 simultaneously using the ``[all]`` option
 
 ```console

@@ -7,16 +7,16 @@ from __future__ import annotations
 
 import numpy as np
 from numpy.random import RandomState
-
 from tno.quantum.optimization.qubo.components import QUBO, Solver
-from tno.quantum.optimization.qubo.solvers._classical._iterative_result import (
-    IterativeResult,
-)
 from tno.quantum.utils import BitVector, BitVectorLike
 from tno.quantum.utils.validation import (
     check_int,
     check_random_state,
     check_string,
+)
+
+from tno.quantum.optimization.qubo.solvers._classical._iterative_result import (
+    IterativeResult,
 )
 
 
@@ -95,11 +95,12 @@ class NeighborhoodSolver(Solver[IterativeResult]):
         x = initial_bitvector
         for _iteration in range(max_iterations):
             delta_x = qubo.delta_x(x)
-            idx_minimal_change_in_energy = int(np.argmin(delta_x))
-            if delta_x[idx_minimal_change_in_energy] >= 0:
+            if len(delta_x) == 0:
                 break
-            x.flip_indices(idx_minimal_change_in_energy, inplace=True)
-
+            idx_min = int(np.argmin(delta_x))
+            if delta_x[idx_min] >= 0:
+                break
+            x.flip_indices(idx_min, inplace=True)
         return IterativeResult.from_result(x, qubo.evaluate(x), _iteration)
 
     def _solve_via_local2_descent(
@@ -121,11 +122,12 @@ class NeighborhoodSolver(Solver[IterativeResult]):
         x = initial_bitvector
         for _iteration in range(max_iterations):
             delta_x2 = qubo.delta_x2(x)
+            if len(delta_x2) == 0:
+                break
             i, j = map(int, np.unravel_index(np.argmin(delta_x2), delta_x2.shape))
             if delta_x2[i, j] >= 0:
                 break
             x.flip_indices(i, j, inplace=True)
-
         return IterativeResult.from_result(x, qubo.evaluate(x), _iteration)
 
     def _solve(self, qubo: QUBO) -> IterativeResult:

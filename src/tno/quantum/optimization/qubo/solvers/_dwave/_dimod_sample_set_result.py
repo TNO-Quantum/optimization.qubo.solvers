@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, SupportsFloat, cast
 
 from dimod.sampleset import SampleSet
-
 from tno.quantum.optimization.qubo.components import Freq, ResultInterface
 from tno.quantum.utils import BitVector
 from tno.quantum.utils.serialization import Serializable
@@ -13,6 +12,7 @@ from tno.quantum.utils.serialization import Serializable
 if TYPE_CHECKING:
     from typing import Self
 
+    from dwave.embedding.transforms import EmbeddedStructure
     from tno.quantum.optimization.qubo.components import QUBO
     from tno.quantum.utils import BitVectorLike
 
@@ -30,6 +30,14 @@ class DimodSampleSetResult(ResultInterface):
         """Init :py:class:`DimodSampleSetResult`."""
         super().__init__(best_bitvector, best_value, freq)
         self.sampleset = sampleset
+
+    @property
+    def embedding(self) -> None | EmbeddedStructure | list[dict[int, tuple[int]]]:
+        """Returns embedding."""
+        embedding_context: dict[str, Any] = self.sampleset.info.get(
+            "embedding_context", {}
+        )
+        return embedding_context.get("embedding")
 
     @classmethod
     def from_result(cls, qubo: QUBO, sampleset: SampleSet) -> Self:
@@ -50,8 +58,14 @@ class DimodSampleSetResult(ResultInterface):
             data_vectors["energy"],
             data_vectors["num_occurrences"],
         )
+
+        # NOTE: QUBO of size 0x0 may result in empty sampleset
+        if len(sampleset) == 0 and qubo.size == 0:
+            sampleset = SampleSet.from_samples([[]], "BINARY", qubo.offset)  # type: ignore[no-untyped-call]
+
         best_bitvector = BitVector(sampleset.record["sample"][0])
         best_value = sampleset.first.energy
+
         return cls(best_bitvector, best_value, freq, sampleset)
 
 

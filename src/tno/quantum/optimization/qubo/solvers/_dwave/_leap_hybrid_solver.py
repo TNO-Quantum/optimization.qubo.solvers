@@ -5,8 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from dwave.system import LeapHybridSampler
-
 from tno.quantum.optimization.qubo.components import QUBO, Solver
+from tno.quantum.utils.validation import check_int
+
 from tno.quantum.optimization.qubo.solvers._dwave._dimod_sample_set_result import (
     DimodSampleSetResult,
 )
@@ -14,7 +15,6 @@ from tno.quantum.optimization.qubo.solvers._dwave._utils import (
     get_singleton,
     retry_on_network_errors,
 )
-from tno.quantum.utils.validation import check_int
 
 
 class LeapHybridSolver(Solver[DimodSampleSetResult]):

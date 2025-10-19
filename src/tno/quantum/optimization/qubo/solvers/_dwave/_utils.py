@@ -3,12 +3,12 @@
 import logging
 import time
 import warnings
+from collections.abc import Callable
 from http.client import RemoteDisconnected
-from typing import Any, Callable, TypeVar
-
-from urllib3.exceptions import ProtocolError
+from typing import Any, TypeVar
 
 from tno.quantum.optimization.qubo.components import ResultInterface, Solver
+from urllib3.exceptions import ProtocolError
 
 T = TypeVar("T")
 

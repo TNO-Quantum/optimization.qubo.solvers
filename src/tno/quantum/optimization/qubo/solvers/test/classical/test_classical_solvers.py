@@ -2,44 +2,34 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
-
 from tno.quantum.optimization.qubo.components import QUBO, ResultInterface, Solver
+
 from tno.quantum.optimization.qubo.solvers import (
     IterativeResult,
     NeighborhoodSolver,
     RSSolver,
 )
-from tno.quantum.utils import BitVector
 
-
-@pytest.fixture
-def qubo() -> QUBO:
-    """Test Qubo, Solution: '010', Value = -37"""
-    return QUBO([[1, 2, 3], [4, -50, 6], [7, 8, 9]], 13)
-
-
-@pytest.fixture
-def expected_bitvector() -> BitVector:
-    return BitVector("010")
-
-
-@pytest.fixture
-def expected_value() -> float:
-    return -37
+if TYPE_CHECKING:
+    from tno.quantum.utils import BitVector
 
 
 @pytest.mark.parametrize("solver_type", ["local_descent", "local2_descent"])
 def test_neighborhood_solver(
-    solver_type: str, qubo: QUBO, expected_bitvector: BitVector
+    solver_type: str, qubo: QUBO, expected_bitvector: BitVector, expected_value: float
 ) -> None:
-    """Test neighborhood specific solver."""
+    """Test NeighborhoodSolver produces IterativeResult with expected properties."""
     solver = NeighborhoodSolver(solver_type=solver_type)
     result = solver.solve(qubo)
+
     assert isinstance(result, IterativeResult)
+    assert result.best_value == expected_value
+    assert result.best_bitvector == expected_bitvector
+
     assert hasattr(result, "num_iterations")
 
     # Test initial vector is optimal solution
@@ -50,9 +40,13 @@ def test_neighborhood_solver(
     assert result.num_iterations == 0
 
     # Test initial vector is not optimal solution
-    solver = NeighborhoodSolver(solver_type=solver_type, initial_bitvector=[0, 1, 1])
-    result = solver.solve(qubo)
-    assert result.num_iterations > 0
+    if len(expected_bitvector) > 0:
+        solver = NeighborhoodSolver(
+            solver_type=solver_type,
+            initial_bitvector=[1 - b for b in expected_bitvector],
+        )
+        result = solver.solve(qubo)
+        assert result.num_iterations > 0
 
 
 @pytest.mark.parametrize(
@@ -93,7 +87,7 @@ def test_random_seed(
     ],
 )
 def test_solver_result(
-    solver_class: type[Solver[Any]],
+    solver_class: type[Solver[ResultInterface]],
     solver_args: dict[str, Any],
     qubo: QUBO,
     expected_bitvector: BitVector,
@@ -101,7 +95,7 @@ def test_solver_result(
 ) -> None:
     """Test result of solvers."""
     solver = solver_class(random_state=42, **solver_args)  # type: ignore[call-arg]
-    result: ResultInterface = solver.solve(qubo)
+    result = solver.solve(qubo)
 
     assert result.best_bitvector == expected_bitvector
     assert result.best_value == expected_value

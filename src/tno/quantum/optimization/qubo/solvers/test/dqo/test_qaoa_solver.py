@@ -3,43 +3,30 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
-
 from tno.quantum.optimization.qubo.components import QUBO, Freq
-from tno.quantum.optimization.qubo.solvers import QAOASolver
-from tno.quantum.optimization.qubo.solvers._qaoa._qaoa_solver import (
+from tno.quantum.utils import BackendConfig, BitVector, OptimizerConfig
+
+from tno.quantum.optimization.qubo.solvers import QAOAResult, QAOASolver
+from tno.quantum.optimization.qubo.solvers._dqo._qaoa_solver import (
     get_default_evaluation_backend_if_none,
     get_default_optimizer_if_none,
     get_default_training_backend_if_none,
 )
-from tno.quantum.utils import BackendConfig, BitVector, OptimizerConfig
+
+if TYPE_CHECKING:
+    from tno.quantum.optimization.qubo.components import QUBO, Freq
 
 
-# Test Qubo: Solution: '010', Value = -37
-@pytest.fixture(name="qubo")
-def qubo_fixture() -> QUBO:
-    return QUBO([[1, 2, 3], [4, -50, 6], [7, 8, 9]], 13)
-
-
-@pytest.fixture(name="expected_value")
-def expected_value_fixture() -> float:
-    return -37
-
-
-@pytest.fixture(name="expected_bitvector")
-def expected_bitvector_fixture() -> BitVector:
-    return BitVector("010")
-
-
-@pytest.fixture(name="solver")
-def solver_fixture() -> QAOASolver:
+@pytest.fixture
+def solver() -> QAOASolver:
     return QAOASolver(
         random_state=42,
         num_layers=4,
-        num_iter=25,
+        num_iter=50,
         training_backend={"name": "default.qubit", "options": {"wires": 3}},
         evaluation_backend={
             "name": "default.qubit",
@@ -48,11 +35,12 @@ def solver_fixture() -> QAOASolver:
     )
 
 
-def test_qaoa(
-    qubo: QUBO, solver: QAOASolver, expected_value: float, expected_bitvector: BitVector
+def test_qaoa_solver(
+    solver: QAOASolver, qubo: QUBO, expected_value: float, expected_bitvector: BitVector
 ) -> None:
     result = solver.solve(qubo)
 
+    assert isinstance(result, QAOAResult)
     assert result.best_value == expected_value
     assert result.best_bitvector == expected_bitvector
     assert _get_mode(result.freq) == expected_bitvector
@@ -69,8 +57,8 @@ def _get_mode(freq: Freq) -> BitVector:
 
 
 def test_init_parameters(qubo: QUBO, solver: QAOASolver) -> None:
-    solver.init_beta = [1.0, 2.0, 3.0, 4.0]  # type: ignore
-    solver.init_gamma = [3.0, 4.0, 5.0, 6.0]  # type: ignore
+    solver.init_beta = [1.0, 2.0, 3.0, 4.0]
+    solver.init_gamma = [3.0, 4.0, 5.0, 6.0]
     solver.num_iter = 1
 
     result = solver.solve(qubo)
@@ -96,7 +84,7 @@ def test_training_backend(
     expected_backend: Mapping[str, str | Mapping[str, Any]],
 ) -> None:
     solver.num_iter = 1
-    solver.training_backend = backend  # type: ignore
+    solver.training_backend = backend
     result = solver.solve(qubo)
 
     assert result.training_backend == BackendConfig.from_mapping(expected_backend)
@@ -119,7 +107,7 @@ def test_evaluation_backend(
     expected_backend: Mapping[str, str | Mapping[str, Any]],
 ) -> None:
     solver.num_iter = 1
-    solver.evaluation_backend = backend  # type: ignore
+    solver.evaluation_backend = backend
     result = solver.solve(qubo)
     assert result.evaluation_backend == BackendConfig.from_mapping(expected_backend)
 
@@ -129,8 +117,8 @@ def test_evaluation_backend(
     [
         (None, {"name": "adagrad", "options": {}}),
         (
-            {"name": "ADAM", "options": {"lr": 1.0}},
-            {"name": "ADAM", "options": {"lr": 1.0}},
+            {"name": "adam", "options": {"lr": 1.0}},
+            {"name": "adam", "options": {"lr": 1.0}},
         ),
     ],
 )
@@ -141,7 +129,7 @@ def test_optimizer(
     expected_optimizer: Mapping[str, str | Mapping[str, Any]],
 ) -> None:
     solver.num_iter = 1
-    solver.optimizer = optimizer  # type: ignore
+    solver.optimizer = optimizer
     result = solver.solve(qubo)
     assert result.optimizer == OptimizerConfig.from_mapping(expected_optimizer)
 

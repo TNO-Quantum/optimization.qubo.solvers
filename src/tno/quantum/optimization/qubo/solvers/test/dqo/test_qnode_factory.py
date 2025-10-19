@@ -4,7 +4,7 @@ import numpy as np
 import pennylane as qml
 import pytest
 
-from tno.quantum.optimization.qubo.solvers._qaoa._qnode_factory import QNodeFactory
+from tno.quantum.optimization.qubo.solvers._dqo._qnode_factory import QNodeFactory
 
 
 class TestQNodeFactory:
@@ -15,7 +15,6 @@ class TestQNodeFactory:
         return QNodeFactory(external_fields, interactions)
 
     def test_attributes(self, factory: QNodeFactory) -> None:
-        expected_wires = range(3)
         expected_cost_h = qml.Hamiltonian(
             [1, 2, 3, 10, 20, 30],
             [
@@ -27,11 +26,8 @@ class TestQNodeFactory:
                 qml.Z(1) @ qml.Z(2),
             ],
         )
-        expected_mixer_h = qml.Hamiltonian([1, 1, 1], [qml.X(0), qml.X(1), qml.X(2)])
 
-        assert factory.wires == expected_wires
-        assert factory.cost_h == expected_cost_h
-        assert factory.mixer_h == expected_mixer_h
+        assert factory.cost_hamiltonian == expected_cost_h
 
     def test_circuit_error(self, factory: QNodeFactory) -> None:
         with pytest.raises(ValueError, match="unknown return_mode"):
@@ -49,5 +45,5 @@ class TestQNodeFactory:
         assert specs["device_name"] == "default.qubit"
         resources = specs["resources"]
         assert resources.num_wires == 3
-        assert resources.num_gates == 7
-        assert resources.gate_types == {"Hadamard": 3, "ApproxTimeEvolution": 4}
+        assert resources.num_gates == 33
+        assert resources.gate_types == {"Hadamard": 3, "CNOT": 12, "RZ": 12, "RX": 6}

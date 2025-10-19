@@ -7,8 +7,9 @@ from typing import TYPE_CHECKING, cast
 import numpy as np
 import pytest
 from dimod.sampleset import SampleSet
-
 from tno.quantum.optimization.qubo.components import QUBO, Freq
+from tno.quantum.utils import BitVector
+
 from tno.quantum.optimization.qubo.solvers import (
     DimodSampleSetResult,
 )
@@ -16,22 +17,14 @@ from tno.quantum.optimization.qubo.solvers import (
 if TYPE_CHECKING:
     from pathlib import Path
 
-EXPECTED_BITVECTOR = np.array([0, 1, 0], dtype=np.uint8)
-EXPECTED_VALUE = -50
-EXPECTED_FREQ = Freq(["010"], [-50], [10])
-EXPECTED_FREQ2 = Freq(["010", "000"], [-50, 0], [9, 1])
 DUMMY_PROPERTIES = {"dummy_properties": 1}
 
 
 class TestWithSampleSet:
     """Test the ``DimodSampleSetResult`` with SampleSet."""
 
-    @pytest.fixture(name="qubo")
-    def qubo_fixture(self) -> QUBO:
-        return QUBO([[1, 2, 3], [4, -50, 6], [7, 8, 9]])
-
-    @pytest.fixture(name="sampleset")
-    def sampleset_fixture(self) -> SampleSet:
+    @pytest.fixture
+    def sampleset(self) -> SampleSet:
         """Return an example of SampleSet similar to real-world execution."""
         sampleset = SampleSet.from_samples(  # type: ignore[no-untyped-call]
             [[0, 1, 0], [0, 0, 0]],
@@ -56,12 +49,35 @@ class TestWithSampleSet:
         )
         return cast("SampleSet", sampleset)
 
-    def test_init(self, qubo: QUBO, sampleset: SampleSet) -> None:
+    @pytest.fixture
+    def sampleset_qubo(self) -> QUBO:
+        return QUBO([[1, 2, 3], [4, -50, 6], [7, 8, 9]])
+
+    @pytest.fixture
+    def bitvector(self) -> BitVector:
+        return BitVector("010")
+
+    @pytest.fixture
+    def value(self) -> float:
+        return -50.0
+
+    @pytest.fixture
+    def freq(self) -> Freq:
+        return Freq(["010", "000"], [-50, 0], [9, 1])
+
+    def test_init(
+        self,
+        sampleset_qubo: QUBO,
+        bitvector: BitVector,
+        value: float,
+        freq: Freq,
+        sampleset: SampleSet,
+    ) -> None:
         """Check if the SampleSetResult parses the result correctly."""
-        result = DimodSampleSetResult.from_result(qubo, sampleset)
-        assert np.array_equiv(result.best_bitvector, EXPECTED_BITVECTOR)
-        assert result.best_value == EXPECTED_VALUE
-        assert result.freq == EXPECTED_FREQ2
+        result = DimodSampleSetResult.from_result(sampleset_qubo, sampleset)
+        assert np.array_equiv(result.best_bitvector, bitvector)
+        assert result.best_value == value
+        assert result.freq == freq
         assert result.sampleset == sampleset
 
     def test_dump_load(self, qubo: QUBO, sampleset: SampleSet, tmp_path: Path) -> None:

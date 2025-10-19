@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from tno.quantum.optimization.qubo.components import QUBO, BasicResult, Solver
+
 from tno.quantum.optimization.qubo.solvers._qubovert._utils import _get_qubovert_model
 
 

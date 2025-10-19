@@ -9,11 +9,7 @@ import numpy as np
 import torch
 from numpy.random import RandomState
 from numpy.typing import ArrayLike, NDArray
-from tqdm import trange
-
 from tno.quantum.optimization.qubo.components import QUBO, Solver
-from tno.quantum.optimization.qubo.solvers._qaoa._qaoa_result import QAOAResult
-from tno.quantum.optimization.qubo.solvers._qaoa._qnode_factory import QNodeFactory
 from tno.quantum.utils import BackendConfig, OptimizerConfig
 from tno.quantum.utils.validation import (
     check_arraylike,
@@ -21,6 +17,10 @@ from tno.quantum.utils.validation import (
     check_int,
     check_random_state,
 )
+from tqdm import trange
+
+from tno.quantum.optimization.qubo.solvers._dqo._qaoa_result import QAOAResult
+from tno.quantum.optimization.qubo.solvers._dqo._qnode_factory import QNodeFactory
 
 if TYPE_CHECKING:
     import pennylane as qml
@@ -98,20 +98,20 @@ class QAOASolver(Solver[QAOAResult]):
         """
         self._random_state = check_random_state(random_state, "random_state")
         self._num_layers = check_int(num_layers, "num_layers", l_bound=1)
-        self.num_iter = num_iter  # type: ignore
+        self.num_iter = num_iter
         self.init_beta = (
-            init_beta  # type: ignore
+            init_beta
             if init_beta is not None
             else self._random_state.uniform(high=np.pi, size=self.num_layers)
         )
         self.init_gamma = (
-            init_gamma  # type: ignore
+            init_gamma
             if init_gamma is not None
             else self._random_state.uniform(high=2.0 * np.pi, size=self.num_layers)
         )
-        self.training_backend = training_backend  # type: ignore
-        self.evaluation_backend = evaluation_backend  # type: ignore
-        self.optimizer = optimizer  # type: ignore
+        self.training_backend = training_backend
+        self.evaluation_backend = evaluation_backend
+        self.optimizer = optimizer
         self.verbose = verbose
 
     @property
@@ -156,7 +156,7 @@ class QAOASolver(Solver[QAOAResult]):
         return self._training_backend
 
     @training_backend.setter
-    def training_backend(self, value: BackendConfig | Mapping[str, Any]) -> None:
+    def training_backend(self, value: BackendConfig | Mapping[str, Any] | None) -> None:
         self._training_backend = get_default_training_backend_if_none(value)
 
     @property
@@ -165,7 +165,9 @@ class QAOASolver(Solver[QAOAResult]):
         return self._evaluation_backend
 
     @evaluation_backend.setter
-    def evaluation_backend(self, value: BackendConfig | Mapping[str, Any]) -> None:
+    def evaluation_backend(
+        self, value: BackendConfig | Mapping[str, Any] | None
+    ) -> None:
         self._evaluation_backend = get_default_evaluation_backend_if_none(value)
 
     @property
@@ -174,7 +176,7 @@ class QAOASolver(Solver[QAOAResult]):
         return self._optimizer
 
     @optimizer.setter
-    def optimizer(self, value: OptimizerConfig | Mapping[str, Any]) -> None:
+    def optimizer(self, value: OptimizerConfig | Mapping[str, Any] | None) -> None:
         self._optimizer = get_default_optimizer_if_none(value)
 
     @property
@@ -188,15 +190,6 @@ class QAOASolver(Solver[QAOAResult]):
 
     def _solve(self, qubo: QUBO) -> QAOAResult:
         """Solve the given QUBO using the QAOA algorithm."""
-        external_fields, interactions, _ = qubo.to_ising()
-        qnode_factory = QNodeFactory(external_fields, interactions)
-        qnode_cost = qnode_factory.make_qnode(
-            self.training_backend, self.num_layers, "expval"
-        )
-        qnode_counts = qnode_factory.make_qnode(
-            self.evaluation_backend, self.num_layers, "counts"
-        )
-
         properties = {
             "num_iter": self.num_iter,
             "init_beta": self._init_beta,
@@ -205,6 +198,22 @@ class QAOASolver(Solver[QAOAResult]):
             "evaluation_backend": self.evaluation_backend,
             "optimizer": self.optimizer,
         }
+
+        if qubo.size == 0:
+            properties["final_beta"] = properties["init_beta"]
+            properties["final_gamma"] = properties["init_gamma"]
+            properties["expval_history"] = []
+            raw_result: Mapping[str, int] = {"": 1}
+            return QAOAResult.from_result(qubo, raw_result, properties)
+
+        external_fields, interactions, _ = qubo.to_ising()
+        qnode_factory = QNodeFactory(external_fields, interactions)
+        qnode_cost = qnode_factory.make_qnode(
+            self.training_backend, self.num_layers, "expval"
+        )
+        qnode_counts = qnode_factory.make_qnode(
+            self.evaluation_backend, self.num_layers, "counts"
+        )
 
         properties.update(
             self._optimize_parameters(
@@ -216,7 +225,6 @@ class QAOASolver(Solver[QAOAResult]):
                 verbose=self.verbose,
             )
         )
-
         raw_result = self._run_optimized_circuit(qnode_counts, properties)
 
         return QAOAResult.from_result(qubo, raw_result, properties)

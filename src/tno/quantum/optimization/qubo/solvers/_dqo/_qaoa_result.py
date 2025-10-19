@@ -6,8 +6,8 @@ import itertools
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, SupportsFloat
 
+import numpy as np
 from tno.quantum.optimization.qubo.components import Freq, ResultInterface
-from tno.quantum.utils import BitVector
 from tno.quantum.utils.validation import check_arraylike, check_ax
 
 if TYPE_CHECKING:
@@ -15,7 +15,6 @@ if TYPE_CHECKING:
 
     from matplotlib.axes import Axes
     from numpy.typing import ArrayLike
-
     from tno.quantum.optimization.qubo.components import QUBO
     from tno.quantum.utils import BackendConfig, BitVectorLike, OptimizerConfig
 
@@ -84,48 +83,32 @@ class QAOAResult(ResultInterface):
         Raises:
             ValueError: If `raw_result` is empty.
         """
-        # Convert `raw_result` to `Freq` object with energies = QUBO evaluation
-        bitvectors = [BitVector(s) for s in raw_result]
-        energies = [qubo.evaluate(b) for b in bitvectors]
-        num_occurrences = [raw_result[s] for s in raw_result]
+        freq = Freq(
+            bitvectors=raw_result.keys(),
+            energies=map(qubo.evaluate, raw_result.keys()),
+            num_occurrences=raw_result.values(),
+        )
 
-        freq = Freq(bitvectors, energies, num_occurrences)
-
-        # Find `best_bitvector` and `best_value`
-        best_bitvector = None
-        best_value = None
-        occ_best_bitvector = None
-        for bitvector, value, occ in freq:
-            if (
-                best_value is None
-                or occ_best_bitvector is None
-                or value < best_value
-                or (value == best_value and occ > occ_best_bitvector)
-            ):
-                best_bitvector = bitvector
-                best_value = value
-                occ_best_bitvector = occ
-
-        if best_bitvector is None or best_value is None:
+        if not freq.energies:
             msg = "Argument `raw_result` is empty"
             raise ValueError(msg)
 
-        # Get properties from `properties` (make copies of lists)
-        init_beta = list(properties["init_beta"])
-        init_gamma = list(properties["init_gamma"])
-        final_beta = list(properties["final_beta"])
-        final_gamma = list(properties["final_gamma"])
-        expval_history = list(properties["expval_history"])
+        # Find the solution index with the lowest energy. Break ties by returning the
+        # solution index with the highest number of occurrences.
+        energies = np.array(freq.energies)
+        num_occurrences = np.array(freq.num_occurrences)
+        (min_indices,) = np.where(energies == energies.min())
+        best_idx = min_indices[np.argmax(num_occurrences[min_indices])]
 
         return cls(
-            best_bitvector=best_bitvector,
-            best_value=best_value,
+            best_bitvector=freq.bitvectors[best_idx],
+            best_value=freq.energies[best_idx],
             freq=freq,
-            init_beta=init_beta,
-            init_gamma=init_gamma,
-            final_beta=final_beta,
-            final_gamma=final_gamma,
-            expval_history=expval_history,
+            init_beta=properties["init_beta"],
+            init_gamma=properties["init_gamma"],
+            final_beta=properties["final_beta"],
+            final_gamma=properties["final_gamma"],
+            expval_history=properties["expval_history"],
             training_backend=properties["training_backend"],
             evaluation_backend=properties["evaluation_backend"],
             optimizer=properties["optimizer"],

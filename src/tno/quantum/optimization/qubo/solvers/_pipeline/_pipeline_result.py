@@ -15,10 +15,11 @@ if TYPE_CHECKING:
     from datetime import timedelta
     from typing import Self
 
+    from tno.quantum.utils import BitVectorLike
+
     from tno.quantum.optimization.qubo.solvers._pipeline._preprocess_result import (
         PreprocessResult,
     )
-    from tno.quantum.utils import BitVectorLike
 
 
 @dataclass(init=False)

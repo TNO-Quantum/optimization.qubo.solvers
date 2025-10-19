@@ -20,7 +20,8 @@ def _get_qubovert_model(qubo: QUBO) -> qubovert.PCBO:
         Qubovert model
     """
     variables = {i: qubovert.boolean_var(f"x({i})") for i in range(qubo.size)}
-    model = qubo.offset
+    model = qubovert.PCBO()
+    model += qubo.offset
     for i in range(qubo.size):
         for j in range(qubo.size):
             model += variables[i] * variables[j] * qubo.matrix[i, j]

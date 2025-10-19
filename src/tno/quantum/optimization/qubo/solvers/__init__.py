@@ -6,30 +6,36 @@ The :py:mod:`~tno.quantum.optimization.qubo.solvers` package can be installed us
 
 By default, the package is installed without external solver dependencies. You can
 specify which QUBO solvers you would like to install. Available options are
-``[dwave, qubovert, qaoa]``. Alternatively, you can install all solvers
+``[dwave, qubovert, dqo]``. Alternatively, you can install all solvers
 simultaneously using the ``[all]`` option::
 
     pip install tno.quantum.optimization.qubo.solvers[all]
 
 
 Example:
--------
+--------
 The following example shows how to list the available solvers and how to instantiate them.
 
 >>> from tno.quantum.optimization.qubo.components import SolverConfig
->>> list(SolverConfig.supported_items())  # doctest: +NORMALIZE_WHITESPACE
+>>> sorted(SolverConfig.supported_items())  # doctest: +NORMALIZE_WHITESPACE
 ['bf_solver',
  'custom_solver',
+ 'd_wave_clique_embedded_simulated_annealing_solver',
  'd_wave_clique_sampler_solver',
+ 'd_wave_embedded_simulated_annealing_solver',
+ 'd_wave_parallel_embedding_solver',
  'd_wave_sampler_solver',
+ 'd_wave_tiling_solver',
+ 'daqo_solver',
+ 'digital_adiabatic_quantum_optimization_solver',
  'exact_sampler_solver',
  'kerberos_sampler_solver',
  'leap_hybrid_solver',
  'neighborhood_solver',
  'pipeline_solver',
  'qaoa_solver',
- 'rs_solver',
  'random_sampler_solver',
+ 'rs_solver',
  'sa2_solver',
  'simulated_annealing_solver',
  'steepest_descent_solver',
@@ -91,11 +97,23 @@ if importlib.util.find_spec("dwave"):
     from tno.quantum.optimization.qubo.solvers._dwave._dimod_sample_set_result import (
         DimodSampleSetResult,
     )
+    from tno.quantum.optimization.qubo.solvers._dwave._dwave_clique_embedded_simulated_annealing_solver import (  # noqa: E501
+        DWaveCliqueEmbeddedSimulatedAnnealingSolver,
+    )
     from tno.quantum.optimization.qubo.solvers._dwave._dwave_clique_sampler_solver import (  # noqa: E501
         DWaveCliqueSamplerSolver,
     )
+    from tno.quantum.optimization.qubo.solvers._dwave._dwave_embedded_simulated_annealing_solver import (  # noqa: E501
+        DWaveEmbeddedSimulatedAnnealingSolver,
+    )
+    from tno.quantum.optimization.qubo.solvers._dwave._dwave_parallel_embedding_solver import (  # noqa: E501
+        DWaveParallelEmbeddingSolver,
+    )
     from tno.quantum.optimization.qubo.solvers._dwave._dwave_sampler_solver import (
         DWaveSamplerSolver,
+    )
+    from tno.quantum.optimization.qubo.solvers._dwave._dwave_tiling_solver import (
+        DWaveTilingSolver,
     )
     from tno.quantum.optimization.qubo.solvers._dwave._exact_sampler_solver import (
         ExactSamplerSolver,
@@ -122,8 +140,12 @@ if importlib.util.find_spec("dwave"):
 
     __all__ += [
         "CustomSolver",
+        "DWaveCliqueEmbeddedSimulatedAnnealingSolver",
         "DWaveCliqueSamplerSolver",
+        "DWaveEmbeddedSimulatedAnnealingSolver",
+        "DWaveParallelEmbeddingSolver",
         "DWaveSamplerSolver",
+        "DWaveTilingSolver",
         "DimodSampleSetResult",
         "ExactSamplerSolver",
         "KerberosSamplerSolver",
@@ -152,12 +174,20 @@ if all(
     importlib.util.find_spec(package)
     for package in ["torch", "pennylane", "tqdm", "matplotlib"]
 ):
-    from tno.quantum.optimization.qubo.solvers._qaoa._qaoa_result import QAOAResult
-    from tno.quantum.optimization.qubo.solvers._qaoa._qaoa_solver import QAOASolver
+    from tno.quantum.optimization.qubo.solvers._dqo._daqo_result import DAQOResult
+    from tno.quantum.optimization.qubo.solvers._dqo._daqo_solver import (
+        DAQOSolver,
+        DigitalAdiabaticQuantumOptimizationSolver,
+    )
+    from tno.quantum.optimization.qubo.solvers._dqo._qaoa_result import QAOAResult
+    from tno.quantum.optimization.qubo.solvers._dqo._qaoa_solver import QAOASolver
 
     __all__ += [
+        "DAQOResult",
+        "DAQOSolver",
+        "DigitalAdiabaticQuantumOptimizationSolver",
         "QAOAResult",
         "QAOASolver",
     ]
 
-__version__ = "1.0.0"
+__version__ = "1.5.0"

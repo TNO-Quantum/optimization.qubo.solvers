@@ -4,12 +4,12 @@ from pathlib import Path
 
 import pytest
 from qubovert.sim._anneal_results import AnnealResult, AnnealResults
-
 from tno.quantum.optimization.qubo.components import Freq
+from tno.quantum.utils import BitVector
+
 from tno.quantum.optimization.qubo.solvers._qubovert._qubovert_anneal_result import (
     QubovertAnnealResult,
 )
-from tno.quantum.utils import BitVector
 
 
 class TestWithAnnealResults:

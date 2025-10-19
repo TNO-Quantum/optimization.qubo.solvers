@@ -6,7 +6,6 @@ from collections import Counter
 from typing import TYPE_CHECKING, Any, SupportsFloat
 
 from qubovert.sim import AnnealResult, AnnealResults
-
 from tno.quantum.optimization.qubo.components import Freq, ResultInterface
 from tno.quantum.utils import BitVector, BitVectorLike
 from tno.quantum.utils.serialization import Serializable

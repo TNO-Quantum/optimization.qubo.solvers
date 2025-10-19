@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 import numpy as np
 from numpy.random import RandomState
 from numpy.typing import NDArray
-
 from tno.quantum.optimization.qubo.components import BasicResult, Freq, Solver
 from tno.quantum.utils import BitVector
 from tno.quantum.utils.validation import (

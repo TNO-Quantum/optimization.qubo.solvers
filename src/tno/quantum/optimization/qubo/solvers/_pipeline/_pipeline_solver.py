@@ -15,6 +15,7 @@ from tno.quantum.optimization.qubo.components import (
     Solver,
     SolverConfig,
 )
+
 from tno.quantum.optimization.qubo.solvers._pipeline._pipeline_result import (
     PipelineResult,
 )
@@ -160,7 +161,9 @@ class PipelineSolver(Solver[PipelineResult]):
         # Construct `PreprocessResult`s (they are created in reverse order)
         preprocess_results: list[PreprocessResult] = []
         for partial_solution, execution_time in zip(
-            reversed(preprocess_partial_solutions), reversed(preprocess_execution_times)
+            reversed(preprocess_partial_solutions),
+            reversed(preprocess_execution_times),
+            strict=False,
         ):
             result = PreprocessResult.from_result(partial_solution, result)
             result.execution_time = timedelta(seconds=execution_time)
