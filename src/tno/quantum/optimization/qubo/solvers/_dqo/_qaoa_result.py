@@ -15,14 +15,15 @@ if TYPE_CHECKING:
 
     from matplotlib.axes import Axes
     from numpy.typing import ArrayLike
+    from tno.quantum.devices import DeviceConfig
     from tno.quantum.optimization.qubo.components import QUBO
-    from tno.quantum.utils import BackendConfig, BitVectorLike, OptimizerConfig
+    from tno.quantum.utils import BitVectorLike, OptimizerConfig
 
 
 class QAOAResult(ResultInterface):
     """Implementation of `ResultInterface` for :py:class:`QAOASolver`."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         best_bitvector: BitVectorLike,
         best_value: SupportsFloat,
@@ -32,8 +33,8 @@ class QAOAResult(ResultInterface):
         final_beta: ArrayLike,
         final_gamma: ArrayLike,
         expval_history: ArrayLike,
-        training_backend: BackendConfig,
-        evaluation_backend: BackendConfig,
+        training_device: DeviceConfig,
+        evaluation_device: DeviceConfig,
         optimizer: OptimizerConfig,
     ) -> None:
         """Init :py:class:`QAOAResult`.
@@ -47,8 +48,8 @@ class QAOAResult(ResultInterface):
             final_beta: Final parameters for the mixer layer.
             final_gamma: Final parameters for the mixer layer.
             expval_history: Loss values over all optimizing iterations.
-            training_backend: Training backend used.
-            evaluation_backend: Evaluation backend used.
+            training_device: Training device used.
+            evaluation_device: Evaluation device used.
             optimizer: Optimizer used.
         """
         super().__init__(best_bitvector, best_value, freq)
@@ -58,8 +59,8 @@ class QAOAResult(ResultInterface):
         self.final_beta = check_arraylike(final_beta, "final_beta", ndim=1)
         self.final_gamma = check_arraylike(final_gamma, "final_gamma", ndim=1)
         self.expval_history = check_arraylike(expval_history, "expval_history", ndim=1)
-        self.training_backend = training_backend
-        self.evaluation_backend = evaluation_backend
+        self.training_device = training_device
+        self.evaluation_device = evaluation_device
         self.optimizer = optimizer
 
     @classmethod
@@ -109,8 +110,8 @@ class QAOAResult(ResultInterface):
             final_beta=properties["final_beta"],
             final_gamma=properties["final_gamma"],
             expval_history=properties["expval_history"],
-            training_backend=properties["training_backend"],
-            evaluation_backend=properties["evaluation_backend"],
+            training_device=properties["training_device"],
+            evaluation_device=properties["evaluation_device"],
             optimizer=properties["optimizer"],
         )
 

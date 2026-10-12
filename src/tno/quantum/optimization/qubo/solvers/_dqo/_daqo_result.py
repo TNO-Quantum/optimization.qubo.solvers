@@ -15,21 +15,22 @@ if TYPE_CHECKING:
 
     from matplotlib.axes import Axes
     from numpy.typing import ArrayLike
+    from tno.quantum.devices import DeviceConfig
     from tno.quantum.optimization.qubo.components import QUBO
-    from tno.quantum.utils import BackendConfig, BitVectorLike
+    from tno.quantum.utils import BitVectorLike
 
 
 class DAQOResult(ResultInterface):
     """Implementation of `ResultInterface` for :py:class:`DAQOResult`."""
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         best_bitvector: BitVectorLike,
         best_value: SupportsFloat,
         freq: Freq,
         n_layers: SupportsInt,
         schedule: ArrayLike,
-        backend: BackendConfig,
+        device: DeviceConfig,
     ) -> None:
         """Init :py:class:`DAQOResult`.
 
@@ -39,11 +40,11 @@ class DAQOResult(ResultInterface):
             freq: Frequency object with the found energies and number of occurrences.
             n_layers: Number of layers used in the DAQO circuit.
             schedule: Annealing schedule used in the DAQO circuit.
-            backend: Backend used to sample the circuit.
+            device: Device used to sample the circuit.
         """
         super().__init__(best_bitvector, best_value, freq)
         self.n_layers = check_int(n_layers, "n_layers", l_bound=1)
-        self.backend = backend
+        self.device = device
         self.schedule = check_arraylike(
             schedule, "schedule", ndim=2, shape=(2, self.n_layers)
         )
@@ -52,7 +53,7 @@ class DAQOResult(ResultInterface):
     def from_result(
         cls, qubo: QUBO, raw_result: Mapping[str, int], properties: dict[str, Any]
     ) -> Self:
-        """Construct :py:class:`QADAQOResultOAResult` from `raw_result` and the `qubo`.
+        """Construct :py:class:`DAQOResultOAResult` from `raw_result` and the `qubo`.
 
         Args:
             qubo: QUBO to evaluate the given bitvectors.
@@ -92,7 +93,7 @@ class DAQOResult(ResultInterface):
             freq=freq,
             n_layers=properties["n_layers"],
             schedule=properties["schedule"],
-            backend=properties["backend"],
+            device=properties["device"],
         )
 
     def plot_shots_histogram(self, ax: Axes | None = None) -> None:

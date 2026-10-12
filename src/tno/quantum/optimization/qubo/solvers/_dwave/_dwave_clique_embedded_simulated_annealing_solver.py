@@ -6,7 +6,7 @@ from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any, SupportsInt
 
-import dwave_networkx as dnx
+import dwave.graphs
 from dimod import SampleSet, StructureComposite
 from dwave.samplers import SimulatedAnnealingSampler
 from dwave.system import DWaveSampler, FixedEmbeddingComposite
@@ -124,15 +124,15 @@ class DWaveCliqueEmbeddedSimulatedAnnealingSolver(Solver[DimodSampleSetResult]):
         else:
             topology_type = sampler_backend.properties["topology"]["type"]
             if topology_type == "pegasus":
-                graph = dnx.pegasus_graph(
+                graph = dwave.graphs.pegasus_graph(
                     sampler_backend.properties["topology"]["shape"][0]
                 )
             elif topology_type == "chimera":
-                graph = dnx.chimera_graph(
+                graph = dwave.graphs.chimera_graph(
                     *sampler_backend.properties["topology"]["shape"]
                 )
             elif topology_type == "zephyr":
-                graph = dnx.zephyr_graph(
+                graph = dwave.graphs.zephyr_graph(
                     sampler_backend.properties["topology"]["shape"][0]
                 )
             else:

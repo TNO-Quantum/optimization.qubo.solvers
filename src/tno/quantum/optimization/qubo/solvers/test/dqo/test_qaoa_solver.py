@@ -7,14 +7,15 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 import pytest
+from tno.quantum.devices import DeviceConfig
 from tno.quantum.optimization.qubo.components import QUBO, Freq
-from tno.quantum.utils import BackendConfig, BitVector, OptimizerConfig
+from tno.quantum.utils import BitVector, OptimizerConfig
 
 from tno.quantum.optimization.qubo.solvers import QAOAResult, QAOASolver
 from tno.quantum.optimization.qubo.solvers._dqo._qaoa_solver import (
-    get_default_evaluation_backend_if_none,
+    get_default_evaluation_device_if_none,
     get_default_optimizer_if_none,
-    get_default_training_backend_if_none,
+    get_default_training_device_if_none,
 )
 
 if TYPE_CHECKING:
@@ -27,8 +28,8 @@ def solver() -> QAOASolver:
         random_state=42,
         num_layers=4,
         num_iter=50,
-        training_backend={"name": "default.qubit", "options": {"wires": 3}},
-        evaluation_backend={
+        training_device={"name": "default.qubit", "options": {"wires": 3}},
+        evaluation_device={
             "name": "default.qubit",
             "options": {"wires": 3, "shots": 1000, "seed": 42},
         },
@@ -68,7 +69,7 @@ def test_init_parameters(qubo: QUBO, solver: QAOASolver) -> None:
 
 
 @pytest.mark.parametrize(
-    ("backend", "expected_backend"),
+    ("device", "expected_device"),
     [
         (None, {"name": "default.qubit", "options": {}}),
         (
@@ -77,21 +78,21 @@ def test_init_parameters(qubo: QUBO, solver: QAOASolver) -> None:
         ),
     ],
 )
-def test_training_backend(
+def test_training_device(
     qubo: QUBO,
     solver: QAOASolver,
-    backend: Mapping[str, str | Mapping[str, Any]] | None,
-    expected_backend: Mapping[str, str | Mapping[str, Any]],
+    device: Mapping[str, str | Mapping[str, Any]] | None,
+    expected_device: Mapping[str, str | Mapping[str, Any]],
 ) -> None:
     solver.num_iter = 1
-    solver.training_backend = backend
+    solver.training_device = device
     result = solver.solve(qubo)
 
-    assert result.training_backend == BackendConfig.from_mapping(expected_backend)
+    assert result.training_device == DeviceConfig.from_mapping(expected_device)
 
 
 @pytest.mark.parametrize(
-    ("backend", "expected_backend"),
+    ("device", "expected_device"),
     [
         (None, {"name": "default.qubit", "options": {"shots": 100}}),
         (
@@ -100,16 +101,16 @@ def test_training_backend(
         ),
     ],
 )
-def test_evaluation_backend(
+def test_evaluation_device(
     qubo: QUBO,
     solver: QAOASolver,
-    backend: Mapping[str, str | Mapping[str, Any]] | None,
-    expected_backend: Mapping[str, str | Mapping[str, Any]],
+    device: Mapping[str, str | Mapping[str, Any]] | None,
+    expected_device: Mapping[str, str | Mapping[str, Any]],
 ) -> None:
     solver.num_iter = 1
-    solver.evaluation_backend = backend
+    solver.evaluation_device = device
     result = solver.solve(qubo)
-    assert result.evaluation_backend == BackendConfig.from_mapping(expected_backend)
+    assert result.evaluation_device == DeviceConfig.from_mapping(expected_device)
 
 
 @pytest.mark.parametrize(
@@ -141,8 +142,8 @@ def test_init_qaoa_solver() -> None:
         num_iter=3,
         init_beta=np.array([1.0, 1.0]),
         init_gamma=np.array([1.0, 1.0]),
-        training_backend={"name": "default.qubit", "options": {"shots": 123}},
-        evaluation_backend={"name": "default.qubit", "options": {"shots": 456}},
+        training_device={"name": "default.qubit", "options": {"shots": 123}},
+        evaluation_device={"name": "default.qubit", "options": {"shots": 456}},
         optimizer={"name": "adagrad"},
         verbose=True,
     )
@@ -151,10 +152,10 @@ def test_init_qaoa_solver() -> None:
     assert solver.num_iter == 3
     assert isinstance(solver._init_beta, np.ndarray)
     assert isinstance(solver._init_gamma, np.ndarray)
-    assert solver.training_backend == BackendConfig(
+    assert solver.training_device == DeviceConfig(
         name="default.qubit", options={"shots": 123}
     )
-    assert solver.evaluation_backend == BackendConfig(
+    assert solver.evaluation_device == DeviceConfig(
         name="default.qubit", options={"shots": 456}
     )
     assert solver.optimizer == OptimizerConfig(name="adagrad")
@@ -168,7 +169,8 @@ def test_init_qaoa_solver_default_arguments() -> None:
     assert solver.num_iter == 100
     assert isinstance(solver._init_beta, np.ndarray)
     assert isinstance(solver._init_gamma, np.ndarray)
-    assert solver.training_backend == get_default_training_backend_if_none()
-    assert solver.evaluation_backend == get_default_evaluation_backend_if_none()
+    assert solver.training_device == get_default_training_device_if_none()
+    assert solver.evaluation_device == get_default_evaluation_device_if_none()
     assert solver.optimizer == get_default_optimizer_if_none()
+    assert solver.diff_method == "best"
     assert not solver.verbose

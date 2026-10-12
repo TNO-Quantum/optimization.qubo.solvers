@@ -7,7 +7,7 @@ from functools import partial
 from typing import TYPE_CHECKING, Any
 
 import pennylane as qml
-from tno.quantum.utils import BackendConfig
+from tno.quantum.devices import DeviceConfig
 from tno.quantum.utils.validation import check_arraylike
 
 from tno.quantum.optimization.qubo.solvers._dqo.layers_lib import (
@@ -105,9 +105,10 @@ class QNodeFactory:
 
     def make_qnode(
         self,
-        backend: BackendConfig | Mapping[str, Any],
+        device: DeviceConfig | Mapping[str, Any],
         num_layers: int,
         return_mode: str,
+        diff_method: str | None = None,
     ) -> qml.QNode:
         """Create a QAOA circuit for the optimization step.
 
@@ -119,16 +120,18 @@ class QNodeFactory:
         all wires in the Z basis and counting the different combinations.
 
         Args:
-            backend: Configuration for backend to execute the tape on.
+            device: Configuration for device to execute the tape on.
             num_layers: Number of cost and mixer layers.
             return_mode: Wether to use ``qml.expval`` or ``qml.counts``. Choose either
                 "expval" or "counts".
+            diff_method: Differentiation method passed to the :class:`pennylane.QNode`.
+                Default is ``None``.
 
         Returns:
             Pennylane QNode that is parameterized by the gamma (cost) and beta (mixer)
             parameters, which should be vectors of length `num_layers`.
         """
-        backend = BackendConfig.from_mapping(backend)
-        backend_instance = backend.get_instance(wires=self.cost_layer.n_wires)
+        device = DeviceConfig.from_mapping(device)
+        device_instance = device.get_instance(wires=self.cost_layer.n_wires)
         func = partial(self._circuit, num_layers=num_layers, return_mode=return_mode)
-        return qml.QNode(func, backend_instance)
+        return qml.QNode(func, device_instance, diff_method=diff_method)

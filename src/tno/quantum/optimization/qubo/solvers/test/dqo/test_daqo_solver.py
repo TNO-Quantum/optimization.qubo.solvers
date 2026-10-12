@@ -17,11 +17,11 @@ if TYPE_CHECKING:
 
 @pytest.fixture(name="solver")
 def solver_fixture() -> DAQOSolver:
-    backend = {
+    device = {
         "name": "default.qubit",
         "options": {"shots": 1000},
     }
-    return DAQOSolver(n_layers=100, backend=backend)
+    return DAQOSolver(n_layers=100, device=device)
 
 
 @pytest.mark.parametrize(
@@ -62,9 +62,9 @@ def test_daqo_schedule(
         (np.zeros(50), "Schedule must have length"),
         (np.linspace(0.0, 2.0, 100), "must be in the range"),
         (np.linspace(-1.0, 1.0, 100), "must be in the range"),
-        (np.linspace(1.0, 0.0, 100), "much smaller"),
+        (np.linspace(1.0, 0.0, 100), "smaller"),
         # 2D schedules
-        (np.zeros((2, 50)), "Schedule must have shape"),
+        (np.zeros((2, 50)), "A 2D schedule must have shape"),
         ((np.linspace(0.25, 0.75, 100), np.linspace(0.0, 1.0, 100)), "much larger"),
         ((np.linspace(1.0, 0.0, 100), np.linspace(0.75, 0.25, 100)), "much smaller"),
         ((np.linspace(0.25, 0.0, 100), np.linspace(0.75, 1.0, 100)), "much larger"),

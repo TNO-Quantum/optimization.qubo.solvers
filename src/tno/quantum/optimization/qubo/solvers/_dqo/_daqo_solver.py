@@ -10,11 +10,21 @@ from typing import TYPE_CHECKING, Any, Literal, SupportsInt
 
 import numpy as np
 import pennylane as qml
+from tno.quantum.devices import DeviceConfig
 from tno.quantum.optimization.qubo.components import Solver
-from tno.quantum.utils import BackendConfig
 from tno.quantum.utils.validation import check_int
 
 from tno.quantum.optimization.qubo.solvers._dqo._daqo_result import DAQOResult
+from tno.quantum.optimization.qubo.solvers._dqo._validate_schedule import (
+    check_1d_schedule_bounds,
+    check_1d_schedule_start_and_end,
+    check_initial_ham_schedule,
+    check_length,
+    check_ndim,
+    check_problem_ham_schedule,
+    check_schedule_monotonicity,
+    check_shape,
+)
 from tno.quantum.optimization.qubo.solvers._dqo.layers_lib import (
     CostLayer,
     InitialLayer,
@@ -54,7 +64,7 @@ class DAQOSolver(Solver[DAQOResult]):
     def __init__(
         self,
         n_layers: SupportsInt,
-        backend: BackendConfig | Mapping[str, Any] | None = None,
+        device: DeviceConfig | Mapping[str, Any] | None = None,
         schedule: Schedule = "sinusoidal",
     ) -> None:
         r"""Init :py:class:`DAQOSolver`.
@@ -62,7 +72,7 @@ class DAQOSolver(Solver[DAQOResult]):
         Args:
             n_layers: integer value representing the number of layers. The number of
                 layers is equal to the number of Trotter steps.
-            backend: backend used to sample the circuit.
+            device: Configuration for device used to sample the circuit.
             schedule: Annealing schedule to use for the adiabatic evolution.
                 If ``"sinusoidal"`` or ``"linear"`` is provided, the respective
                 predefined sinusoidal or linear schedule is used.
@@ -75,7 +85,7 @@ class DAQOSolver(Solver[DAQOResult]):
                 Hamiltonian, respectively.
         """
         self._n_layers = check_int(n_layers, "n_layers", l_bound=1)
-        self._backend = get_default_backend_if_none(backend)
+        self._device = get_default_device_if_none(device)
         self.schedule = schedule
 
     def sample_qubo(self, qubo: QUBO) -> dict[str, int]:
@@ -94,8 +104,8 @@ class DAQOSolver(Solver[DAQOResult]):
         if qubo.size == 0:
             return {"": 1}
         external_fields, interactions, _ = qubo.to_ising()
-        device = self._backend.get_instance(wires=range(len(external_fields)))
-        quantum_script = self._build_quantum_script(interactions, external_fields)
+        device = self._device.get_instance(wires=range(len(external_fields)))
+        quantum_script = self.build_quantum_script(interactions, external_fields)
         return qml.execute([quantum_script], device)[0]  # type: ignore[no-any-return]
 
     def _solve(self, qubo: QUBO) -> DAQOResult:
@@ -103,15 +113,49 @@ class DAQOSolver(Solver[DAQOResult]):
         samples = self.sample_qubo(qubo)
         properties = {
             "n_layers": self._n_layers,
-            "backend": self._backend,
+            "device": self._device,
             "schedule": self._schedule,
         }
         return DAQOResult.from_result(qubo, samples, properties)
 
-    def _build_quantum_script(
+    def build_quantum_script(
         self, interactions: NDArray[np.float64], external_fields: NDArray[np.float64]
     ) -> qml.tape.QuantumScript:
-        """Build the quantum script for the digital adiabatic quantum optimization."""
+        """Build a quantum script for digitized adiabatic quantum optimization.
+
+        This method constructs a :class:`~pennylane.tape.QuantumScript` representing the
+        adiabatic evolution of a quantum system under a time-dependent Hamiltonian. It
+        normalizes the problem parameters, prepares the initial state, applies initial
+        and cost layers according to the provided schedule, and returns a quantum tape
+        ready for execution.
+
+        Notes:
+          This is a utility function to have direct access to the quantum script. This
+          can be used to analyse the circuit or convert it to different formats for
+          different devices. If the goal is to sample from a QUBO problem, it is
+          recommended to use :class:`~DAQOSolver.solve` or
+          :class:`~DAQOSolver.sample_qubo` instead.
+
+
+        Args:
+          interactions: A 2D array representing interaction strengths between qubits
+            (e.g., Lenz-Ising couplings).
+          external_fields: A 1D array representing external field strengths applied to
+            each qubit.
+
+        Returns:
+          :class:`~pennylane.tape.QuantumScript` containing the prepared quantum circuit
+          for adiabatic quantum optimization, including the
+          :py:func:`~pennylane.counts` measurement instruction.
+
+        Example:
+          >>> import numpy as np
+          >>> solver =  DAQOSolver(10)
+          >>> interactions = np.array([[0, 1], [1, 0]], dtype=np.float64)
+          >>> external_fields = np.array([0.5, -0.5], dtype=np.float64)
+          >>> solver.build_quantum_script(interactions, external_fields)
+          <QuantumScript: wires=[0, 1], params=60>
+        """
         norm_constant = max(abs(interactions).max(), abs(external_fields).max())
         interactions /= norm_constant
         external_fields /= norm_constant
@@ -128,12 +172,12 @@ class DAQOSolver(Solver[DAQOResult]):
             for init_strength, cost_strength in zip(
                 init_schedule, cost_schedule, strict=False
             ):
-                initial_ham_layer(init_strength)
                 cost_ham_layer(cost_strength)
+                initial_ham_layer(init_strength)
 
             qml.counts()
 
-        shots = check_int(self._backend.options.get("shots", 1000), "shots", l_bound=1)
+        shots = check_int(self._device.options.get("shots", 1000), "shots", l_bound=1)
         return qml.tape.QuantumScript.from_queue(queue, shots=shots)
 
     @property
@@ -142,9 +186,9 @@ class DAQOSolver(Solver[DAQOResult]):
         return self._n_layers
 
     @property
-    def backend(self) -> BackendConfig:
-        """Get the backend configuration."""
-        return self._backend
+    def device(self) -> DeviceConfig:
+        """Get the device configuration."""
+        return self._device
 
     @property
     def schedule(self) -> NDArray[np.float64]:
@@ -206,27 +250,10 @@ class DAQOSolver(Solver[DAQOResult]):
         Returns:
             Tuple of two numpy arrays containing the annealing schedules.
         """
-        if schedule.ndim != 1:
-            msg = (
-                f"Expected 1-dimensional array, "
-                f"but {schedule.ndim}-dimensional array was given"
-            )
-            raise ValueError(msg)
-
-        if len(schedule) != self._n_layers:
-            msg = f"Schedule must have length {self._n_layers}, got {len(schedule)}"
-            raise ValueError(msg)
-
-        if np.min(schedule) < 0.0 or np.max(schedule) > 1.0:
-            msg = "All values in a 1D schedule must be in the range $[0, 1]$"
-            raise ValueError(msg)
-
-        if schedule[0] >= schedule[-1]:
-            msg = (
-                "The first value in a 1D schedule should be "
-                "much smaller than the last value"
-            )
-            raise ValueError(msg)
+        check_ndim(schedule, ndim=1)
+        check_length(schedule, self.n_layers)
+        check_1d_schedule_bounds(schedule)
+        check_1d_schedule_start_and_end(schedule)
 
         return np.array([1 - schedule, schedule])
 
@@ -236,70 +263,33 @@ class DAQOSolver(Solver[DAQOResult]):
         Returns:
             Tuple of two numpy arrays containing the annealing schedules.
         """
-        if schedule.ndim != 2:
-            msg = (
-                f"Expected 2-dimensional array, "
-                f"but {schedule.ndim}-dimensional array was given"
-            )
-            raise ValueError(msg)
-
-        if schedule.shape != (2, self._n_layers):
-            msg = f"Schedule must have shape (2, {self._n_layers}), got {len(schedule)}"
-            raise ValueError(msg)
-
-        if schedule[0, 0] <= schedule[0, -1]:
-            msg = (
-                "The first row of a 2D schedule represents the schedule for the "
-                "initial Hamiltonian, whose first value should be much larger than "
-                "the last value in the schedule."
-            )
-            raise ValueError(msg)
-
-        if schedule[1, 0] >= schedule[1, -1]:
-            msg = (
-                "The second row of a 2D schedule represents the schedule for the "
-                "problem Hamiltonian, whose first value should be much smaller than "
-                "the last value in the schedule."
-            )
-            raise ValueError(msg)
-
-        if schedule[0, 0] < schedule[1, 0]:
-            msg = (
-                "In a 2D schedule, the first value of the schedule of the "
-                "initial Hamiltonian should be much larger than the first value of "
-                "the schedule of the problem Hamiltonian."
-            )
-            raise ValueError(msg)
-
-        if schedule[0, -1] > schedule[1, -1]:
-            msg = (
-                "In a 2D schedule, the last value of the schedule of the "
-                "initial Hamiltonian should be much smaller than the last value of "
-                "the schedule of the problem Hamiltonian."
-            )
-            raise ValueError(msg)
+        check_ndim(schedule, ndim=2)
+        check_shape(schedule, (2, self.n_layers))
+        check_initial_ham_schedule(schedule[0])
+        check_problem_ham_schedule(schedule[1])
+        check_schedule_monotonicity(schedule)
 
         return schedule
 
 
-def get_default_backend_if_none(
-    backend: BackendConfig | Mapping[str, Any] | None = None,
-) -> BackendConfig:
-    """Set default backend if the one provided is ``None``.
+def get_default_device_if_none(
+    device: DeviceConfig | Mapping[str, Any] | None = None,
+) -> DeviceConfig:
+    """Set default device if the one provided is ``None``.
 
-    Default training backend ``{"name": "default.qubit", "options": {}}``.
+    Default training device ``{"name": "default.qubit", "options": {}}``.
 
     Args:
-        backend: backend configuration or ``None``.
+        device: Device configuration or ``None``.
 
     Raises:
-        KeyError: If `backend` does not contain key ``"name"``.
+        KeyError: If `device` does not contain key ``"name"``.
 
     Returns:
-        Given backend or the default training backend.
+        Given device or the default training device.
     """
-    return BackendConfig.from_mapping(
-        backend if backend is not None else {"name": "default.qubit"}
+    return DeviceConfig.from_mapping(
+        device if device is not None else {"name": "default.qubit"}
     )
 
 

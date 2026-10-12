@@ -1,8 +1,9 @@
 """Test module for the ``QAOAResult`` class."""
 
 import pytest
+from tno.quantum.devices import DeviceConfig
 from tno.quantum.optimization.qubo.components import Freq
-from tno.quantum.utils import BackendConfig, OptimizerConfig
+from tno.quantum.utils import OptimizerConfig
 
 from tno.quantum.optimization.qubo.solvers import QAOAResult
 
@@ -18,8 +19,8 @@ def result_fixture() -> QAOAResult:
         final_beta=[1.0, 2.0],
         final_gamma=[3.0, 4.0],
         expval_history=[-1.0, -2.0],
-        training_backend=BackendConfig(name="default.qubit"),
-        evaluation_backend=BackendConfig(name="default.qubit"),
+        training_device=DeviceConfig(name="default.qubit"),
+        evaluation_device=DeviceConfig(name="default.qubit"),
         optimizer=OptimizerConfig(name="adagrad"),
     )
 

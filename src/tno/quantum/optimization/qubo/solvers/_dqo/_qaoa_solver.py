@@ -9,13 +9,15 @@ import numpy as np
 import torch
 from numpy.random import RandomState
 from numpy.typing import ArrayLike, NDArray
+from tno.quantum.devices import DeviceConfig
 from tno.quantum.optimization.qubo.components import QUBO, Solver
-from tno.quantum.utils import BackendConfig, OptimizerConfig
+from tno.quantum.utils import OptimizerConfig
 from tno.quantum.utils.validation import (
     check_arraylike,
     check_bool,
     check_int,
     check_random_state,
+    check_string,
 )
 from tqdm import trange
 
@@ -55,46 +57,48 @@ class QAOASolver(Solver[QAOAResult]):
         num_iter: SupportsInt = 100,
         init_beta: ArrayLike | None = None,
         init_gamma: ArrayLike | None = None,
-        training_backend: BackendConfig | Mapping[str, Any] | None = None,
-        evaluation_backend: BackendConfig | Mapping[str, Any] | None = None,
+        training_device: DeviceConfig | Mapping[str, Any] | None = None,
+        evaluation_device: DeviceConfig | Mapping[str, Any] | None = None,
         optimizer: OptimizerConfig | Mapping[str, Any] | None = None,
+        diff_method: str | None = "best",
         verbose: bool = False,
     ) -> None:
         r"""Init :py:class:`QAOASolver`.
 
         Args:
-            random_state: Random state to seed. The seed is used when creating random
-                parameters (gamma and beta). Note that this seed *does not* seed the
-                backends or optimizers. These should be seeded separately.
-            num_layers: Number of layers to use. Each layer contains one mixer block and
-                one cost block. Default is 1.
-            num_iter: Number of optimization iterations to perform. Default is 100.
-            init_beta: Initial parameters for the mixer layer. Should be an
-                1-D ArrayLike of length `num_layers` with values in the range
-                $[0, \pi)$. If ``None`` (default) is provided the random values will be
-                generated.
-            init_gamma: Initial parameters for the cost layer. Should be an
-                1-D ArrayLike of length `num_layers` with values in range $[0, 2\pi)$.
-                If ``None`` (default) is provided the random values will be generated.
-            training_backend: Training backend to use. Must be a ``BackendConfig`` or a
-                mapping with the ``"name"`` and ``"options"`` keys. If ``None``
-                (default) is provided, ``{"name": "default.qubit", "options": {}}`` is
-                used.
-            evaluation_backend: Evaluation backend to use after the circuit has been
-                optimized. The chosen backend must have the `shots` attribute. Must be
-                a ``BackendConfig`` or a mapping with the "name" and "options" keys. If
-                ``None`` (default) is provided,
-                ``{"name": "default.qubit", "options": {"shots": 100}}`` is used.
-            optimizer: Optimizer to use. Must be an ``OptimizerConfig`` or a mapping
-                with the "name" and "options" keys. If ``None`` (default) is provided,
-                ``{"name": "adagrad", "options": {}}`` is used.
-            verbose: If ``True`` print additional information. Default is ``False``.
+          random_state: Random state to seed. The seed is used when creating random
+            parameters (gamma and beta). Note that this seed *does not* seed the
+            devices or optimizers. These should be seeded separately.
+          num_layers: Number of layers to use. Each layer contains one mixer block and
+            one cost block. Default is 1.
+          num_iter: Number of optimization iterations to perform. Default is 100.
+          init_beta: Initial parameters for the mixer layer. Should be an 1-D ArrayLike
+            of length `num_layers` with values in the range $[0, \pi)$. If ``None``
+            (default) is provided the random values will be generated.
+          init_gamma: Initial parameters for the cost layer. Should be an 1-D ArrayLike
+            of length `num_layers` with values in range $[0, 2\pi)$. If ``None``
+            (default) is provided the random values will be generated.
+          training_device: Training device to use. Must be a ``DeviceConfig`` or a
+            mapping with the ``"name"`` and ``"options"`` keys. If ``None`` (default) is
+            provided, ``{"name": "default.qubit", "options": {}}`` is used.
+          evaluation_device: Evaluation device to use after the circuit has been
+            optimized. The chosen device must have the `shots` attribute. Must be a
+            ``DeviceConfig`` or a mapping with the "name" and "options" keys. If
+            ``None`` (default) is provided,
+            ``{"name": "default.qubit","options": {"shots": 100}}`` is used.
+          optimizer: Optimizer to use. Must be an ``OptimizerConfig`` or a mapping with
+            the "name" and "options" keys. If ``None`` (default) is provided,
+            ``{"name": "adagrad", "options": {}}`` is used.
+          diff_method: method used to compute the gradients during training. See the
+            documentation of :class:`pennylane.QNode` for more information of allowed
+            values.
+          verbose: If ``True`` print additional information. Default is ``False``.
 
         Raises:
-            ValueError: If `num_layers` or `num_iter` is less than 1, or if `init_beta`
-                or `init_gamma` is not 1-dimensional of length `num_layers`.
-            TypeError: If `random_state`, `num_layers`, `num_iter`, `init_beta` or
-                `init_gamma` has invalid type.
+          ValueError: If `num_layers` or `num_iter` is less than 1, or if `init_beta` or
+            `init_gamma` is not 1-dimensional of length `num_layers`.
+        TypeError: If `random_state`, `num_layers`, `num_iter`, `init_beta` or
+          `init_gamma` has invalid type.
         """
         self._random_state = check_random_state(random_state, "random_state")
         self._num_layers = check_int(num_layers, "num_layers", l_bound=1)
@@ -109,9 +113,12 @@ class QAOASolver(Solver[QAOAResult]):
             if init_gamma is not None
             else self._random_state.uniform(high=2.0 * np.pi, size=self.num_layers)
         )
-        self.training_backend = training_backend
-        self.evaluation_backend = evaluation_backend
+        self.training_device = training_device
+        self.evaluation_device = evaluation_device
         self.optimizer = optimizer
+        self._diff_method = (
+            None if diff_method is None else check_string(diff_method, "diff_method")
+        )
         self.verbose = verbose
 
     @property
@@ -151,24 +158,22 @@ class QAOASolver(Solver[QAOAResult]):
         ).astype(np.float64)
 
     @property
-    def training_backend(self) -> BackendConfig:
-        """Configuration for training backend to use."""
-        return self._training_backend
+    def training_device(self) -> DeviceConfig:
+        """Configuration for training device to use."""
+        return self._training_device
 
-    @training_backend.setter
-    def training_backend(self, value: BackendConfig | Mapping[str, Any] | None) -> None:
-        self._training_backend = get_default_training_backend_if_none(value)
+    @training_device.setter
+    def training_device(self, value: DeviceConfig | Mapping[str, Any] | None) -> None:
+        self._training_device = get_default_training_device_if_none(value)
 
     @property
-    def evaluation_backend(self) -> BackendConfig:
-        """Configuration for evaluation backend to use."""
-        return self._evaluation_backend
+    def evaluation_device(self) -> DeviceConfig:
+        """Configuration for evaluation device to use."""
+        return self._evaluation_device
 
-    @evaluation_backend.setter
-    def evaluation_backend(
-        self, value: BackendConfig | Mapping[str, Any] | None
-    ) -> None:
-        self._evaluation_backend = get_default_evaluation_backend_if_none(value)
+    @evaluation_device.setter
+    def evaluation_device(self, value: DeviceConfig | Mapping[str, Any] | None) -> None:
+        self._evaluation_device = get_default_evaluation_device_if_none(value)
 
     @property
     def optimizer(self) -> OptimizerConfig:
@@ -178,6 +183,11 @@ class QAOASolver(Solver[QAOAResult]):
     @optimizer.setter
     def optimizer(self, value: OptimizerConfig | Mapping[str, Any] | None) -> None:
         self._optimizer = get_default_optimizer_if_none(value)
+
+    @property
+    def diff_method(self) -> str | None:
+        """Configuration for differantation method to use during training."""
+        return self._diff_method
 
     @property
     def verbose(self) -> bool:
@@ -194,8 +204,8 @@ class QAOASolver(Solver[QAOAResult]):
             "num_iter": self.num_iter,
             "init_beta": self._init_beta,
             "init_gamma": self._init_gamma,
-            "training_backend": self.training_backend,
-            "evaluation_backend": self.evaluation_backend,
+            "training_device": self.training_device,
+            "evaluation_device": self.evaluation_device,
             "optimizer": self.optimizer,
         }
 
@@ -209,10 +219,10 @@ class QAOASolver(Solver[QAOAResult]):
         external_fields, interactions, _ = qubo.to_ising()
         qnode_factory = QNodeFactory(external_fields, interactions)
         qnode_cost = qnode_factory.make_qnode(
-            self.training_backend, self.num_layers, "expval"
+            self.training_device, self.num_layers, "expval", self.diff_method
         )
         qnode_counts = qnode_factory.make_qnode(
-            self.evaluation_backend, self.num_layers, "counts"
+            self.evaluation_device, self.num_layers, "counts"
         )
 
         properties.update(
@@ -298,46 +308,46 @@ class QAOASolver(Solver[QAOAResult]):
         return raw_result
 
 
-def get_default_training_backend_if_none(
-    backend: BackendConfig | Mapping[str, Any] | None = None,
-) -> BackendConfig:
-    """Set default training backend if the one provided is ``None``.
+def get_default_training_device_if_none(
+    device: DeviceConfig | Mapping[str, Any] | None = None,
+) -> DeviceConfig:
+    """Set default training device if the one provided is ``None``.
 
-    Default training backend ``{"name": "default.qubit", "options": {}}``.
+    Default training device ``{"name": "default.qubit", "options": {}}``.
 
     Args:
-        backend: backend configuration or ``None``.
+        device: Device configuration or ``None``.
 
     Raises:
-        KeyError: If `backend` does not contain key ``"name"``.
+        KeyError: If `device` does not contain key ``"name"``.
 
     Returns:
-        Given backend or the default training backend.
+        Given device configuration or the default training device configuration.
     """
-    return BackendConfig.from_mapping(
-        backend if backend is not None else {"name": "default.qubit"}
+    return DeviceConfig.from_mapping(
+        device if device is not None else {"name": "default.qubit"}
     )
 
 
-def get_default_evaluation_backend_if_none(
-    backend: BackendConfig | Mapping[str, Any] | None = None,
-) -> BackendConfig:
-    """Set default evaluation backend if the one provided is ``None``.
+def get_default_evaluation_device_if_none(
+    device: DeviceConfig | Mapping[str, Any] | None = None,
+) -> DeviceConfig:
+    """Set default evaluation device if the one provided is ``None``.
 
-    Default evaluation backend ``{"name": "default.qubit", "options": {"shots": 100}}``.
+    Default evaluation device ``{"name": "default.qubit", "options": {"shots": 100}}``.
 
     Args:
-        backend: evaluation configuration or ``None``.
+        device: Evaluation configuration or ``None``.
 
     Raises:
-        KeyError: If `backend` does not contain key ``"name"``.
+        KeyError: If `device` does not contain key ``"name"``.
 
     Returns:
-        Given backend or the default evaluation backend.
+        Given device configuration or the default evaluation device configuration.
     """
-    return BackendConfig.from_mapping(
-        backend
-        if backend is not None
+    return DeviceConfig.from_mapping(
+        device
+        if device is not None
         else {"name": "default.qubit", "options": {"shots": 100}}
     )
 

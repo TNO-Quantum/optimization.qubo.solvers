@@ -32,7 +32,7 @@ class DimodSampleSetResult(ResultInterface):
         self.sampleset = sampleset
 
     @property
-    def embedding(self) -> None | EmbeddedStructure | list[dict[int, tuple[int]]]:
+    def embedding(self) -> EmbeddedStructure | list[dict[int, tuple[int]]] | None:
         """Returns embedding."""
         embedding_context: dict[str, Any] = self.sampleset.info.get(
             "embedding_context", {}

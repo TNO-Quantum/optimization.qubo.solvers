@@ -43,7 +43,7 @@ class TestQNodeFactory:
 
         specs = qml.specs(qnode)(gamma, beta)
         assert specs["device_name"] == "default.qubit"
+        assert specs["num_device_wires"] == 3
         resources = specs["resources"]
-        assert resources.num_wires == 3
         assert resources.num_gates == 33
         assert resources.gate_types == {"Hadamard": 3, "CNOT": 12, "RZ": 12, "RX": 6}

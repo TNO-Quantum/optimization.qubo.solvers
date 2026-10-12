@@ -14,6 +14,8 @@ from tno.quantum.optimization.qubo.solvers import (
     CustomSolver,
     DAQOResult,
     DAQOSolver,
+    DCQOResult,
+    DCQOSolver,
     DimodSampleSetResult,
     IterativeResult,
     NeighborhoodSolver,
@@ -38,6 +40,7 @@ SOLVERS_WITH_RESULT_TYPES = [
     (PipelineSolver({"name": "bf_solver"}), PipelineResult),
     (QAOASolver(random_state=42), QAOAResult),
     (DAQOSolver(1), DAQOResult),
+    (DCQOSolver(1), DCQOResult),
     (BFSolver(), BasicResult),
     (SA2Solver(random_state=42), QubovertAnnealResult),
     *[

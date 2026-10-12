@@ -27,7 +27,9 @@ The following example shows how to list the available solvers and how to instant
  'd_wave_sampler_solver',
  'd_wave_tiling_solver',
  'daqo_solver',
+ 'dcqo_solver',
  'digital_adiabatic_quantum_optimization_solver',
+ 'digital_counterdiabatic_quantum_optimization_solver',
  'exact_sampler_solver',
  'kerberos_sampler_solver',
  'leap_hybrid_solver',
@@ -179,15 +181,23 @@ if all(
         DAQOSolver,
         DigitalAdiabaticQuantumOptimizationSolver,
     )
+    from tno.quantum.optimization.qubo.solvers._dqo._dcqo_result import DCQOResult
+    from tno.quantum.optimization.qubo.solvers._dqo._dcqo_solver import (
+        DCQOSolver,
+        DigitalCounterdiabaticQuantumOptimizationSolver,
+    )
     from tno.quantum.optimization.qubo.solvers._dqo._qaoa_result import QAOAResult
     from tno.quantum.optimization.qubo.solvers._dqo._qaoa_solver import QAOASolver
 
     __all__ += [
         "DAQOResult",
         "DAQOSolver",
+        "DCQOResult",
+        "DCQOSolver",
         "DigitalAdiabaticQuantumOptimizationSolver",
+        "DigitalCounterdiabaticQuantumOptimizationSolver",
         "QAOAResult",
         "QAOASolver",
     ]
 
-__version__ = "1.5.0"
+__version__ = "2.0.3"

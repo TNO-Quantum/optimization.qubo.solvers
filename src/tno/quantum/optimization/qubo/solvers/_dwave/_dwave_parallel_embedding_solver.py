@@ -66,7 +66,7 @@ class DWaveParallelEmbeddingSolver(Solver[DimodSampleSetResult]):
         embeddings: list[dict[int, list[int]]] | None = None,
         embedder: Callable[..., Any] | None = None,
         embedder_kwargs: dict[str, Any] | None = None,
-        one_to_iterable: bool = False,
+        one_to_iterable: bool = True,
         max_num_emb: int | None = None,
         child_structure_search: Callable[..., Any] | None = None,
         reuse_embedding: bool = False,

@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
+import dwave.graphs
 import numpy as np
 import pytest
 from dwave.system import DWaveSampler
 from tno.quantum.optimization.qubo.components import QUBO
 
 from tno.quantum.optimization.qubo.solvers import (
+    DWaveCliqueEmbeddedSimulatedAnnealingSolver,
     DWaveCliqueSamplerSolver,
     DWaveEmbeddedSimulatedAnnealingSolver,
     DWaveParallelEmbeddingSolver,
@@ -20,6 +23,9 @@ from tno.quantum.optimization.qubo.solvers import (
     SteepestDescentSolver,
     TabuSolver,
 )
+from tno.quantum.optimization.qubo.solvers._dwave import (
+    _dwave_clique_embedded_simulated_annealing_solver as clique_solver_module,
+)
 from tno.quantum.optimization.qubo.solvers._dwave._utils import get_singleton
 from tno.quantum.optimization.qubo.solvers.test.dwave.conftest import (
     QPU_BACKEND_ID,
@@ -27,9 +33,42 @@ from tno.quantum.optimization.qubo.solvers.test.dwave.conftest import (
 )
 
 if TYPE_CHECKING:
+    from networkx import Graph
     from tno.quantum.optimization.qubo.components import Solver
 
     from tno.quantum.optimization.qubo.solvers import DimodSampleSetResult
+
+
+@pytest.mark.parametrize(
+    ("topology_type", "shape", "topology_graph"),
+    [
+        ("pegasus", (2,), dwave.graphs.pegasus_graph(2)),
+        ("chimera", (2, 2, 4), dwave.graphs.chimera_graph(2, 2, 4)),
+        ("zephyr", (2,), dwave.graphs.zephyr_graph(2)),
+    ],
+)
+def test_clique_embedded_solver_supports_dwave_topologies(
+    monkeypatch: pytest.MonkeyPatch,
+    topology_type: str,
+    shape: tuple[int, ...],
+    topology_graph: Graph,
+) -> None:
+    """Test topology graph construction and clique embedding compatibility."""
+    sampler_backend = SimpleNamespace(
+        nodelist=list(topology_graph.nodes),
+        edgelist=list(topology_graph.edges),
+        properties={"topology": {"type": topology_type, "shape": shape}},
+    )
+
+    def get_mock_sampler(sampler_class: type, **_: str) -> object:
+        return sampler_backend if sampler_class is DWaveSampler else sampler_class()
+
+    monkeypatch.setattr(clique_solver_module, "get_singleton", get_mock_sampler)
+
+    qubo = QUBO([[1, 2, 3], [4, -50, 6], [7, 8, 9]], 13)
+    result = DWaveCliqueEmbeddedSimulatedAnnealingSolver().solve(qubo)
+
+    assert result.embedding is not None
 
 
 @dwave_api

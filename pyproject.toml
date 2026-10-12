@@ -11,17 +11,16 @@ maintainers = [{ name = "TNO Quantum Code Lab", email = "tnoquantum@tno.nl" }]
 keywords = ["TNO", "Quantum", "Optimization", "QUBO", "Solvers"]
 license = { text = "Apache License, Version 2.0" }
 classifiers = [
-    "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Operating System :: OS Independent",
-    "Intended Audience :: Developers",
-    "Intended Audience :: Information Technology",
-    "Intended Audience :: Science/Research",
-    "Typing :: Typed",
+    'Intended Audience :: Developers',
+    'Intended Audience :: Information Technology',
+    'Intended Audience :: Science/Research',
+    'Operating System :: OS Independent',
+    'Programming Language :: Python :: 3',
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
+    'Typing :: Typed',
 ]
 urls = { Homepage = "https://github.com/TNO-Quantum/", Documentation = "https://github.com/TNO-Quantum/", Source = "https://github.com/TNO-Quantum/optimization.qubo.solvers" }
 dynamic = ["version"]
@@ -29,15 +28,17 @@ requires-python = ">=3.10"
 dependencies = [
     "numpy",
     "tno.quantum.utils~=5.0",
-     "tno.quantum.optimization.qubo.components~=1.0,>=1.0.2",
+    "tno.quantum.devices~=1.0",
+    "tno.quantum.optimization.qubo.components~=1.0,>=1.0.2",
 ]
 
 [project.optional-dependencies]
 dwave = [
-    "dwave-system>=1.30",
+    "dwave-system>=1.35.0",
+    "dwave-graphs",
     "dwave-hybrid>=0.6.14",
     "dwave-samplers>=1.4",
-    "dwave-preprocessing>=0.6.8",
+    "dwave-preprocessing>=0.6.9",
 ]
 qubovert = ["qubovert~=1.1"]
 dqo = [
